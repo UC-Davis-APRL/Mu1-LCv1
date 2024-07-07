@@ -31,6 +31,10 @@ const int packetID = 7;
 
 const uint8_t muxSwitchOrder[8] = {ADS_P_AIN0, ADS_N_AIN1, ADS_P_AIN2, ADS_N_AIN3, ADS_P_AIN4, ADS_N_AIN5, ADS_P_AIN6, ADS_N_AIN7};
 
+void doReboot() {
+  SCB_AIRCR = 0x05FA0004;
+}
+
 void setup() {
   Serial.begin(115200);
   // while (!Serial)
@@ -39,7 +43,7 @@ void setup() {
   // }
   
   Serial.println("Connected...");
-
+  delay(2000);
   memset(outgoingDataPacketBuffers, 0, dataPacketSize);
 
   // Check for Ethernet hardware present
@@ -83,8 +87,15 @@ void setup() {
   delay(10); //allow adc time to settle/config
   sendCommand(OPCODE_SFOCAL);
   delay(10); //allow adc time to settle/config
-  stopConversions();
+  writeSingleRegister(REG_ADDR_INPMUX, muxSwitchOrder[0] | muxSwitchOrder[1]);
+  delay(10); //allow adc time to settle/config
+  // stopConversions();
   enableDRDYinterrupt(true);
+
+  Serial.print("pga: ");
+  Serial.println(readSingleRegister(REG_ADDR_PGA));
+  Serial.print("datarate: ");
+  Serial.println(readSingleRegister(REG_ADDR_DATARATE));
 }
 
 int lastLoop = 0;
@@ -109,13 +120,13 @@ void loop() {
     long tempData;
     uint8_t startByte = (i*4) + 4;
     
-    writeSingleRegister(REG_ADDR_INPMUX, muxSwitchOrder[i * 2] | muxSwitchOrder[i * 2 + 1]);
-    startConversions();
-    if(waitForDRDYHtoL(1000)){
-      tempData = readConvertedData(NULL, COMMAND);
-      stopConversions();
+
+    if(waitForDRDYHtoL(100)){
+      tempData = readConvertedWhileMux(muxSwitchOrder[i * 2] | muxSwitchOrder[i * 2 + 1]);
     }
-    
+    else{
+      doReboot();
+    }
     
     // tempData = random(100);
     
@@ -133,6 +144,6 @@ void loop() {
   // send sensor data packet
   Udp.send(remote,remotePort,outgoingDataPacketBuffers,dataPacketSize);
 
-  //Serial.println(millis()-lastLoop);
-  //lastLoop = millis();
+  // Serial.println(millis()-lastLoop);
+  // lastLoop = millis();
 }

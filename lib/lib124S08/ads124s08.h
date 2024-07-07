@@ -568,6 +568,7 @@ extern bool converting;
 
 bool 	adcStartupRoutine( void );
 int32_t readConvertedData( uint8_t status[], readMode mode );
+int32_t readConvertedWhileMux( uint8_t muxData );
 uint8_t readSingleRegister( uint8_t address );
 void    readMultipleRegisters( uint8_t startAddress, uint8_t count );
 void    sendCommand( uint8_t op_code );

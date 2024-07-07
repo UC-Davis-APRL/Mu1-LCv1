@@ -452,6 +452,40 @@ int32_t readConvertedData( uint8_t status[], readMode mode )
 
 /************************************************************************************//**
  *
+ * @brief readConvertedWhileMux()
+ *          Read implicitly while sending next mux config
+ *          NOTE: Call this function after /DRDY goes low and specify the 
+ *          the number of bytes to read and the starting position of data
+ *          
+ * @param[in]   muxData      Input multiplexer register value to set
+ * 
+ * @return 		32-bit sign-extended conversion result (data only)
+ */
+int32_t readConvertedWhileMux( uint8_t muxData )
+{
+    uint8_t DataTx[3] = { (uint8_t)(OPCODE_WREG | (REG_ADDR_INPMUX & OPCODE_RWREG_MASK)), 0, muxData };    // Initialize all array elements to 0
+    uint8_t DataRx[3] = { 0 };    
+	int32_t signByte, upperByte, middleByte, lowerByte;
+	
+    spiSendReceiveArrays( DataTx, DataRx, 3 );
+
+    // Parse returned SPI data
+
+    /* Return the 32-bit sign-extended conversion result */
+    if ( DataRx[0] & 0x80u ) {
+    	signByte = 0xFF000000; 
+    } else { 
+    	signByte = 0x00000000; 
+    }
+	upperByte 	= ((int32_t) DataRx[0] & 0xFF) << 16;
+	middleByte  = ((int32_t) DataRx[1] & 0xFF) << 8;
+	lowerByte	= ((int32_t) DataRx[2] & 0xFF);
+
+	return ( signByte + upperByte + middleByte + lowerByte );
+}
+
+/************************************************************************************//**
+ *
  * @brief restoreRegisterDefaults()
  *          Updates the registerMap[] array to its default values
  *          NOTES: If the MCU keeps a copy of the ADC register settings in memory,
