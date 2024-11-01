@@ -4,7 +4,7 @@
  *
  * @brief  ADS124S08 Low level routines in C, implemented for APRL
  * 
- * Original code source from TI
+ * Original sample code from TI
  * @copyright Copyright (C) 2019-22 Texas Instruments Incorporated - http://www.ti.com/
  * All rights reserved. 
  * 
@@ -43,7 +43,7 @@
 #include <assert.h>
 
 #include "hal.h"
-#include "ADS124S08.h"
+#include <Lib124S08.h>
 #include "crc/crc.h"
 
 //****************************************************************************

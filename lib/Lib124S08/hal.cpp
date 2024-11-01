@@ -39,7 +39,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "hal.h"
-#include "ads124s08.h"
+#include <Lib124S08.h>
 
 // SPI configuration
 #define SPI_SPEED 2000000

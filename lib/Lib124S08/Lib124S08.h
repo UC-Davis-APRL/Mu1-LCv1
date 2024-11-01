@@ -1,10 +1,10 @@
 /**
  * 
- * @file ads124s08.h
+ * @file Lib124S08.h
  * 
  * @brief This header file contains all register map definitions for the ADS124S08 device family, modified for Teensy/Arduino
  *
- * Original code source from TI
+ * Original sample code from TI
  * @copyright Copyright (C) 2022 Texas Instruments Incorporated - http://www.ti.com/
  *
  *  Redistribution and use in source and binary forms, with or without

@@ -3,7 +3,7 @@
  *
  * @brief Hardware abstraction layer for Teensy 4.1 with Arduino
  *
- * Original code source from TI
+ * Original sample code from TI
  * @copyright Copyright (C) 2022 Texas Instruments Incorporated - http://www.ti.com/
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "ads124s08.h"
+#include <Lib124S08.h>
 
 
 //****************************************************************************
