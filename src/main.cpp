@@ -24,9 +24,10 @@ EthernetUDP Udp;
 #define SENSOR_COUNT 4 // Number of sensor readings per packet
 
 // Currently, all data values are 32 bit signed integers - but change this in the future
+// Structure:
+// Timestamp: 4 bytes
 // Each ADC reading(sensor value) is 4 bytes
-// Packet ID is 4 bytes
-// Timestamp is 4 bytes
+// PacketID: 4 bytes
 const int dataPacketSize = SENSOR_COUNT*4 +4 +4; // Length of one data packet, in bytes
 
 uint8_t outgoingDataPacketBuffers[dataPacketSize]; // Holds the current outgoing data packet
