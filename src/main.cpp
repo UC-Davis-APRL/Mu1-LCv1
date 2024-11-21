@@ -37,8 +37,12 @@ const int packetID = 7; // Identifies the packet type for COSMOS in each data pa
 //==================ADC Config==================//
 
 // Defines the switching order of the ADC's MUX in pairs, corresponding to the pins each load cell is connected to
-// ie. First we set the MUX to the pins in [0] and [1] to read LC1, then set it to [2] and [3] to read LC2...
-const uint8_t muxSwitchOrder[8] = {ADS_P_AIN0, ADS_N_AIN1, ADS_P_AIN2, ADS_N_AIN3, ADS_P_AIN4, ADS_N_AIN5, ADS_P_AIN6, ADS_N_AIN7};
+// ie. First we set the MUX to the pins in [0] to read LC1, then set it to [2] to read LC2...
+// Formatted to match INPMUX register, see TI ADS124S08 Figure 9.6.1.3 - Bits 7:4 is positive input pin, Bits 3:0 is negative input pin
+const uint8_t muxSwitchOrder[4] = {ADS_P_AIN0 | ADS_N_AIN1, 
+                                   ADS_P_AIN2 | ADS_N_AIN3, 
+                                   ADS_P_AIN4 | ADS_N_AIN5, 
+                                   ADS_P_AIN6 | ADS_N_AIN7};
 
 // Function to reset the microcontroller by setting reset bit in reset control register
 void doReboot() {
@@ -119,7 +123,7 @@ void setup() {
   delay(10); //allow adc time to settle/config
   sendCommand(OPCODE_SFOCAL); // Do self offset cal
   delay(10); //allow adc time to settle/config
-  writeSingleRegister(REG_ADDR_INPMUX, muxSwitchOrder[0] | muxSwitchOrder[1]); // Set intial mux
+  writeSingleRegister(REG_ADDR_INPMUX, muxSwitchOrder[0]); // Set intial mux
   delay(10); //allow adc time to settle/config
   // stopConversions(); // needed?
   enableDRDYinterrupt(true); // Attach the drdy interrupt
@@ -163,7 +167,7 @@ void loop() {
     
     // Get the ADC reading for this sensor
     if(waitForDRDYHtoL(100)){ // wait for ADC for indicate data is ready to be read, with a timeout of Xms
-      tempData = readConvertedWhileMux(muxSwitchOrder[(i * 2)] | muxSwitchOrder[((i * 2) + 1)]); // read the data, while setting the next sensor pins in the MUX
+      tempData = readConvertedWhileMux(muxSwitchOrder[i]); // read the data, while writing the next sensor's pin config in the MUX
     }
     else{ // if timeout when waiting for ADC, reboot TODO: Refactor init code, so we can just attempt ADC reinit instead of rebooting MCU too
       doReboot();
