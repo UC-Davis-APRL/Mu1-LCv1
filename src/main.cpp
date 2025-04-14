@@ -25,9 +25,9 @@ EthernetUDP Udp;
 
 // Currently, all data values are 32 bit signed integers - but change this in the future
 // Structure:
-// Timestamp: 4 bytes
-// Each ADC reading(sensor value) is 4 bytes
 // PacketID: 4 bytes
+// Each ADC reading(sensor value) is 4 bytes
+// Timestamp: 4 bytes
 const int dataPacketSize = SENSOR_COUNT*4 +4 +4; // Length of one data packet, in bytes
 
 uint8_t outgoingDataPacketBuffers[dataPacketSize]; // Holds the current outgoing data packet
@@ -49,8 +49,8 @@ void doReboot() {
   SCB_AIRCR = 0x05FA0004;
 }
 
-// Define to enable debug messages over serial(compile time)
-#define DEBUG_MODE_SERIAL
+// Define to enable debug messages over serial
+//#define DEBUG_MODE_SERIAL
 
 void setup() {
   #if defined(DEBUG_MODE_SERIAL)
@@ -64,7 +64,7 @@ void setup() {
   delay(2000);
   #endif // DEBUG_MODE_SERIAL
   
-  memset(outgoingDataPacketBuffers, 0, dataPacketSize); // danger
+  memset(outgoingDataPacketBuffers, 0, dataPacketSize);
 
   // Check for Ethernet hardware present
   if (!Ethernet.begin()) {
@@ -141,18 +141,9 @@ void setup() {
 
 }
 
-int lastLoop = 0; // variable to store the time of the last loop for debugging - TODO: refactor
+int lastLoop = 0; // Millis since last iteration
 
 void loop() {
-
-  // if(waitForDRDYHtoL(10000)){
-  //   Serial.print("Time: ");
-  //   Serial.println(millis());
-  //   Serial.print("Reading: ");
-  //   Serial.println(readConvertedData(NULL, COMMAND));
-  // }
-
-
   // Shift in the current mcu time in ms as the first 4 bytes of the packet buffer
   for (int i = 0; i<4; i++)
   {
@@ -167,7 +158,15 @@ void loop() {
     
     // Get the ADC reading for this sensor
     if(waitForDRDYHtoL(100)){ // wait for ADC for indicate data is ready to be read, with a timeout of Xms
-      tempData = readConvertedWhileMux(muxSwitchOrder[i]); // read the data, while writing the next sensor's pin config in the MUX
+      tempData = readConvertedWhileMux(muxSwitchOrder[(i+1) % SENSOR_COUNT]); // read the data, while writing the next sensor's pin config in the MUX
+      #ifdef DEBUG_MODE_SERIAL
+      Serial.print("Time:");
+      Serial.print(millis());
+      Serial.print("/Sensor:");
+      Serial.print(i);
+      Serial.print("/Data:");
+      Serial.println(tempData);
+      #endif // DEBUG_MODE_SERIAL
     }
     else{ // if timeout when waiting for ADC, reboot TODO: Refactor init code, so we can just attempt ADC reinit instead of rebooting MCU too
       doReboot();
