@@ -5,6 +5,9 @@
 #include <SPI.h>
 #include <Lib124S08.h>
 
+// Define to enable debug messages over serial and freeze on crashes
+// #define DEBUG_MODE_SERIAL
+
 //==================Ethernet Config==================//
 
 IPAddress subnet(255,255,255,0);  // Standard subnet mask
@@ -21,18 +24,32 @@ EthernetUDP Udp;
 
 //==================Packet Structure==================//
 
-#define SENSOR_COUNT 4 // Number of sensor readings per packet
+#define SENSOR_COUNT 4 // Number of sensor readings per set
+
+#define BATCH_SIZE 10 // Number of reading sets per packet
 
 // Currently, all data values are 32 bit signed integers - but change this in the future
 // Structure:
-// PacketID: 4 bytes
-// Each ADC reading(sensor value) is 4 bytes
 // Timestamp: 4 bytes
+// Each ADC reading(sensor value) is 4 bytes, batched as sets of 50 samples, see beblow
+// PacketID: 4 bytes
+
 const int dataPacketSize = SENSOR_COUNT*4 +4 +4; // Length of one data packet, in bytes
 
-uint8_t outgoingDataPacketBuffers[dataPacketSize]; // Holds the current outgoing data packet
+//uint8_t outgoingDataPacketBuffers[dataPacketSize]; // Holds the current outgoing data packet
 
-const int packetID = 7; // Identifies the packet type for COSMOS in each data packet sent
+const long packetID = 7; // Identifies the packet type for COSMOS in each data packet sent
+
+struct __attribute__ ((packed)) packetBuffer  {
+  long packetTag;
+  long load1[BATCH_SIZE];
+  long load2[BATCH_SIZE];
+  long load3[BATCH_SIZE];
+  long load4[BATCH_SIZE];
+  long packetTime;
+};
+
+packetBuffer outgoingBuffer;
 
 //==================ADC Config==================//
 
@@ -49,9 +66,6 @@ void doReboot() {
   SCB_AIRCR = 0x05FA0004;
 }
 
-// Define to enable debug messages over serial
-//#define DEBUG_MODE_SERIAL
-
 void setup() {
   #if defined(DEBUG_MODE_SERIAL)
   
@@ -64,7 +78,7 @@ void setup() {
   delay(2000);
   #endif // DEBUG_MODE_SERIAL
   
-  memset(outgoingDataPacketBuffers, 0, dataPacketSize);
+  //memset(outgoingDataPacketBuffers, 0, dataPacketSize);
 
   // Check for Ethernet hardware present
   if (!Ethernet.begin()) {
@@ -103,7 +117,7 @@ void setup() {
   // Set pga enabled, gain 128 TODO: Check if conversion needs to be active to set pga register
   writeSingleRegister(REG_ADDR_PGA, (ADS_PGA_ENABLED|ADS_GAIN_128));
   // Set drate
-  writeSingleRegister(REG_ADDR_DATARATE, ADS_DR_2000);
+  writeSingleRegister(REG_ADDR_DATARATE, ADS_DR_4000);
 
   // Disable reference buffers
   writeSingleRegister(REG_ADDR_REF, (ADS_REFP_BYP_DISABLE | ADS_REFN_BYP_DISABLE));
@@ -144,6 +158,82 @@ void setup() {
 int lastLoop = 0; // Millis since last iteration
 
 void loop() {
+  
+  // new batching throw together:
+  outgoingBuffer.packetTime = millis();
+
+  for (int sample = 0; sample < BATCH_SIZE; sample++) {
+    for (int sensor = 0; sensor < SENSOR_COUNT; sensor++)
+    {
+      long tempData;
+
+      #ifdef DEBUG_MODE_SERIAL
+      long readTime = millis();
+      #endif // DEBUG_MODE_SERIAL
+
+      if(waitForDRDYHtoL(100)) {
+        tempData = readConvertedWhileMux(muxSwitchOrder[(sensor+1) % SENSOR_COUNT]); // read the data, while writing the next sensor's pin config in the MUX
+
+        #ifdef DEBUG_MODE_SERIAL
+        Serial.print("Time:");
+        Serial.print(millis());
+        Serial.print("/Sensor:");
+        Serial.print(sensor);
+        Serial.print("/Data:");
+        Serial.print(tempData);
+        Serial.print("/Readtime:");
+        Serial.println(millis() - readTime);
+        #endif // DEBUG_MODE_SERIAL
+
+        switch (sensor)
+        {
+        case 0:
+          outgoingBuffer.load1[sample] = tempData;
+          break;
+        case 1:
+          outgoingBuffer.load2[sample] = tempData;
+          break;
+        case 2:
+          outgoingBuffer.load3[sample] = tempData;
+          break;
+        case 3:
+          outgoingBuffer.load4[sample] = tempData;
+          break;
+        default:
+          #ifdef DEBUG_MODE_SERIAL
+          Serial.print("sensor switch error execution stopped: sample: ");
+          Serial.print(sample);
+          Serial.print(" sensor: ");
+          Serial.println(sensor);
+          while (true) // stop execution
+          {
+          }
+          #endif // DEBUG_MODE_SERIAL
+          doReboot(); // should never reach here, a unrecoverable error must have occurred
+          break;
+        }
+      }
+      else { // if timeout when waiting for ADC, reboot TODO: Refactor init code, so we can just attempt ADC reinit instead of rebooting MCU too
+        #ifdef DEBUG_MODE_SERIAL
+        Serial.println("ADC not responsive execution stopped: sample: ");
+        Serial.print(sample);
+        Serial.print(" sensor: ");
+        Serial.println(sensor);
+        while (true) // stop execution
+        {
+        }
+        #endif // DEBUG_MODE_SERIAL
+        doReboot();
+      }
+    }
+  }
+
+  outgoingBuffer.packetTag = packetID;
+
+  // Send the complete buffer via UDP
+  Udp.send(remote, remotePort, (uint8_t*)&outgoingBuffer, sizeof(outgoingBuffer));
+  
+  /*
   // Shift in the current mcu time in ms as the first 4 bytes of the packet buffer
   for (int i = 0; i<4; i++)
   {
@@ -192,4 +282,5 @@ void loop() {
 
   // Serial.println(millis()-lastLoop); // debug stuff TODO: refactor with above looptime thing
   // lastLoop = millis();
+  */
 }
