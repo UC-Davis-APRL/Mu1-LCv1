@@ -30,13 +30,9 @@ EthernetUDP Udp;
 
 // Currently, all data values are 32 bit signed integers - but change this in the future
 // Structure:
-// Timestamp: 4 bytes
-// Each ADC reading(sensor value) is 4 bytes, batched as sets of 50 samples, see beblow
 // PacketID: 4 bytes
-
-const int dataPacketSize = SENSOR_COUNT*4 +4 +4; // Length of one data packet, in bytes
-
-//uint8_t outgoingDataPacketBuffers[dataPacketSize]; // Holds the current outgoing data packet
+// Each ADC reading(sensor value) is 4 bytes, batched as sets of 50 samples, see beblow
+// Timestamp: 4 bytes
 
 const long packetID = 7; // Identifies the packet type for COSMOS in each data packet sent
 
@@ -78,8 +74,6 @@ void setup() {
   delay(2000);
   #endif // DEBUG_MODE_SERIAL
   
-  //memset(outgoingDataPacketBuffers, 0, dataPacketSize);
-
   // Check for Ethernet hardware present
   if (!Ethernet.begin()) {
     #if defined(DEBUG_MODE_SERIAL)
@@ -232,55 +226,4 @@ void loop() {
 
   // Send the complete buffer via UDP
   Udp.send(remote, remotePort, (uint8_t*)&outgoingBuffer, sizeof(outgoingBuffer));
-  
-  /*
-  // Shift in the current mcu time in ms as the first 4 bytes of the packet buffer
-  for (int i = 0; i<4; i++)
-  {
-    outgoingDataPacketBuffers[(dataPacketSize-4)+i] = (millis() >> (8*(3-i))) & 0xFF;
-  }
-
-  // Read SENSOR_COUNT number of readings, then add them to the packet buffer
-  for (int i = 0; i < SENSOR_COUNT; i++)
-  {
-    long tempData; // temporary adc data variable
-    uint8_t startByte = (i*4) + 4; // starting byte offset for this reading, in bytes(intial offset of 4B for the timestamp)
-    
-    // Get the ADC reading for this sensor
-    if(waitForDRDYHtoL(100)){ // wait for ADC for indicate data is ready to be read, with a timeout of Xms
-      tempData = readConvertedWhileMux(muxSwitchOrder[(i+1) % SENSOR_COUNT]); // read the data, while writing the next sensor's pin config in the MUX
-      #ifdef DEBUG_MODE_SERIAL
-      Serial.print("Time:");
-      Serial.print(millis());
-      Serial.print("/Sensor:");
-      Serial.print(i);
-      Serial.print("/Data:");
-      Serial.println(tempData);
-      #endif // DEBUG_MODE_SERIAL
-    }
-    else{ // if timeout when waiting for ADC, reboot TODO: Refactor init code, so we can just attempt ADC reinit instead of rebooting MCU too
-      doReboot();
-    }
-    
-    // tempData = random(100); // test data junk for testing without ADC
-
-    // Fill in this reading(len:4B), using the correct offset we calced earlier
-    for (int j = 0; j<4; j++)
-    {
-      outgoingDataPacketBuffers[startByte+j] = (tempData >> (8*(3-j))) & 0xFF;
-    }
-  }
-
-  // Once the packet is filled with sensor readings, attach an ID to the end, so the reciever knows the packet type
-  for (int j = 0; j<4; j++)
-  {
-    outgoingDataPacketBuffers[j] = (packetID >> (8*(3-j))) & 0xFF;
-  }
-
-  // Send sensor data packet
-  Udp.send(remote,remotePort,outgoingDataPacketBuffers,dataPacketSize);
-
-  // Serial.println(millis()-lastLoop); // debug stuff TODO: refactor with above looptime thing
-  // lastLoop = millis();
-  */
 }
